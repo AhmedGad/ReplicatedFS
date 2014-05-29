@@ -1,9 +1,16 @@
 package Impl;
 
 public class FileContent {
+	private String fileName;
+
+	public String getFileName() {
+		return fileName;
+	}
+
 	private StringBuilder data;
 
-	public FileContent() {
+	public FileContent(String name) {
+		fileName = name;
 		data = new StringBuilder();
 	}
 
