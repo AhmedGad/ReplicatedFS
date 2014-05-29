@@ -1,0 +1,2 @@
+file1.txt repServer1 repServer2
+file2.txt repServer2 repServer3
