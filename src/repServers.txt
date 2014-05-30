@@ -1,3 +1,0 @@
-repServer1 127.0.0.1 1099
-repServer2 127.0.0.1 1099
-repServer3 127.0.0.1 1099
