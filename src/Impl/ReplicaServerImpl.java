@@ -9,6 +9,7 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -18,7 +19,7 @@ import API.ReplicaServerClientInterface;
 public class ReplicaServerImpl implements ReplicaServerClientInterface {
 
 	private ConcurrentHashMap<Long, String> fileNameTransaction;
-	private ConcurrentHashMap<String, Lock> fileLock;
+	private ConcurrentHashMap<String, Semaphore> fileLock;
 	private ConcurrentHashMap<String, FileContent> cache;
 	private MasterServerClientInterface masterServer;
 	private String dir;
@@ -38,9 +39,13 @@ public class ReplicaServerImpl implements ReplicaServerClientInterface {
 		String fileName = data.getFileName();
 		// if this is the first message, we obtain a lock on file first
 		if (msgSeqNum == 1) {
-			Lock lock = new ReentrantLock();
+			Semaphore lock = new Semaphore(1);
 			lock = fileLock.putIfAbsent(fileName, lock);
-			lock.lock();
+			try {
+				lock.acquire();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
 			fileNameTransaction.put(txnID, fileName);
 			cache.put(fileName, data);
 		} else {
@@ -95,7 +100,7 @@ public class ReplicaServerImpl implements ReplicaServerClientInterface {
 			} catch (IOException e) {
 				success = false;
 			}
-			fileLock.get(fileName).unlock();
+			fileLock.get(fileName).release();
 			return success;
 		}
 		return false;
@@ -106,7 +111,7 @@ public class ReplicaServerImpl implements ReplicaServerClientInterface {
 		if (fileNameTransaction.contains(txnID)) {
 			String fileName = fileNameTransaction.remove(txnID);
 			cache.remove(fileName);
-			fileLock.get(fileName).unlock();
+			fileLock.get(fileName).release();
 			return true;
 		}
 		return false;
