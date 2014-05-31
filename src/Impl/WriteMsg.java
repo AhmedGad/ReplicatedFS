@@ -1,6 +1,10 @@
 package Impl;
 
-public class WriteMsg {
+import java.io.Serializable;
+
+public class WriteMsg implements Serializable {
+
+	private static final long serialVersionUID = -96571865974772105L;
 	private long transactionId;
 	private long timeStamp;
 	private ReplicaLoc loc;

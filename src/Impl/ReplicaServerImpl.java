@@ -10,8 +10,6 @@ import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import API.MasterServerClientInterface;
 import API.ReplicaServerClientInterface;
@@ -29,8 +27,10 @@ public class ReplicaServerImpl implements ReplicaServerClientInterface {
 			MasterServerClientInterface masterServer) {
 		fileNameTransaction = new ConcurrentHashMap<>();
 		fileLock = new ConcurrentHashMap<>();
+		cache = new ConcurrentHashMap<String, FileContent>();
 		this.dir = dir;
 		this.name = name;
+		this.masterServer = masterServer;
 	}
 
 	@Override
@@ -39,8 +39,13 @@ public class ReplicaServerImpl implements ReplicaServerClientInterface {
 		String fileName = data.getFileName();
 		// if this is the first message, we obtain a lock on file first
 		if (msgSeqNum == 1) {
-			Semaphore lock = new Semaphore(1);
-			lock = fileLock.putIfAbsent(fileName, lock);
+			Semaphore lock = null;
+			if (!fileLock.containsKey(fileName)) {
+				lock = new Semaphore(1);
+				fileLock.put(fileName, lock);
+			} else {
+				lock = fileLock.get(fileName);
+			}
 			try {
 				lock.acquire();
 			} catch (InterruptedException e) {
@@ -64,7 +69,7 @@ public class ReplicaServerImpl implements ReplicaServerClientInterface {
 	@Override
 	public boolean commit(long txnID, long numOfMsgs)
 			throws MessageNotFoundException, RemoteException {
-		if (fileNameTransaction.contains(txnID)) {
+		if (fileNameTransaction.containsKey(txnID)) {
 			String fileName = fileNameTransaction.remove(txnID);
 			FileContent content = cache.remove(fileName);
 			ReplicaLoc[] locations = null;
@@ -98,6 +103,7 @@ public class ReplicaServerImpl implements ReplicaServerClientInterface {
 				fw.write(content.getData());
 				fw.close();
 			} catch (IOException e) {
+				e.printStackTrace();
 				success = false;
 			}
 			fileLock.get(fileName).release();
@@ -108,7 +114,7 @@ public class ReplicaServerImpl implements ReplicaServerClientInterface {
 
 	@Override
 	public boolean abort(long txnID) throws RemoteException {
-		if (fileNameTransaction.contains(txnID)) {
+		if (fileNameTransaction.containsKey(txnID)) {
 			String fileName = fileNameTransaction.remove(txnID);
 			cache.remove(fileName);
 			fileLock.get(fileName).release();

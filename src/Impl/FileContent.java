@@ -1,6 +1,10 @@
 package Impl;
 
-public class FileContent {
+import java.io.Serializable;
+
+public class FileContent implements Serializable {
+
+	private static final long serialVersionUID = 8969701885826822440L;
 	private String fileName;
 
 	public String getFileName() {

@@ -42,6 +42,7 @@ public class MasterServerImpl implements MasterServerClientInterface {
 	public MasterServerImpl(File metaData,
 			TreeMap<String, ReplicaLoc> nameToLocMap) throws IOException {
 		locMap = new ConcurrentHashMap<String, ReplicaLoc[]>();
+		fileLock = new ConcurrentHashMap<String, Lock>();
 		txnID = new AtomicInteger(0);
 		timeStamp = new AtomicInteger(0);
 		replicaServerAddresses = new ReplicaLoc[nameToLocMap.size()];
@@ -57,7 +58,7 @@ public class MasterServerImpl implements MasterServerClientInterface {
 			String fName = tok.nextToken();
 			ReplicaLoc[] fileLocations = new ReplicaLoc[tok.countTokens()];
 			for (int i = 0; i < fileLocations.length; i++) {
-				fileLocations[i] = nameToLocMap.get(fName);
+				fileLocations[i] = nameToLocMap.get(tok.nextToken());
 			}
 			locMap.put(fName, fileLocations);
 		}
@@ -106,9 +107,15 @@ public class MasterServerImpl implements MasterServerClientInterface {
 			// the
 			// primary replica in the order which they obtain their transaction
 			// id's
-			Lock lock = new ReentrantLock(true);
+			Lock lock = null;
 			try {
-				(lock = fileLock.putIfAbsent(fileName, lock)).lock();
+				if (!fileLock.containsKey(fileName)) {
+					lock = new ReentrantLock();
+					fileLock.put(fileName, lock);
+				} else {
+					lock = fileLock.get(fileName);
+				}
+				lock.lock();
 				int tId = txnID.incrementAndGet();
 				int ts = timeStamp.incrementAndGet();
 				ReplicaLoc[] locations = null;
@@ -127,6 +134,9 @@ public class MasterServerImpl implements MasterServerClientInterface {
 				}
 				primaryServer.write(tId, 1, data);
 				return new WriteMsg(tId, ts, primary);
+			} catch (Exception e) {
+				e.printStackTrace();
+				return null;
 			} finally {
 				lock.unlock();
 			}
