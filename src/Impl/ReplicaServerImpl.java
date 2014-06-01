@@ -8,8 +8,11 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import API.MasterServerClientInterface;
 import API.ReplicaServerClientInterface;
@@ -18,6 +21,7 @@ public class ReplicaServerImpl implements ReplicaServerClientInterface {
 
 	private ConcurrentHashMap<Long, String> fileNameTransaction;
 	private ConcurrentHashMap<String, Semaphore> fileLock;
+	private ConcurrentHashMap<String, ReadWriteLock> fileReadWriteLock;
 	private ConcurrentHashMap<String, FileContent> cache;
 	private MasterServerClientInterface masterServer;
 	private String dir;
@@ -27,6 +31,7 @@ public class ReplicaServerImpl implements ReplicaServerClientInterface {
 			MasterServerClientInterface masterServer) {
 		fileNameTransaction = new ConcurrentHashMap<>();
 		fileLock = new ConcurrentHashMap<>();
+		fileReadWriteLock = new ConcurrentHashMap<String, ReadWriteLock>();
 		cache = new ConcurrentHashMap<String, FileContent>();
 		this.dir = dir;
 		this.name = name;
@@ -62,8 +67,26 @@ public class ReplicaServerImpl implements ReplicaServerClientInterface {
 	@Override
 	public FileContent read(String fileName) throws FileNotFoundException,
 			IOException, RemoteException {
-		// TODO Auto-generated method stub
-		return null;
+		FileContent data = new FileContent(fileName);
+		ReadWriteLock lock = null;
+		if (!fileReadWriteLock.containsKey(fileName)) {
+			lock = new ReentrantReadWriteLock();
+			fileReadWriteLock.put(fileName, lock);
+		} else {
+			lock = fileReadWriteLock.get(fileName);
+		}
+
+		lock.readLock().lock();
+		Scanner myScanner = new Scanner(new File(dir + "/" + fileName));
+		while (myScanner.hasNext()) {
+			data.appendData(myScanner.nextLine());
+			if (myScanner.hasNext())
+				data.appendData("\n");
+		}
+		myScanner.close();
+		lock.readLock().unlock();
+
+		return data;
 	}
 
 	@Override
@@ -96,8 +119,15 @@ public class ReplicaServerImpl implements ReplicaServerClientInterface {
 					}
 				}
 			}
-
+			ReadWriteLock lock = null;
+			if (!fileReadWriteLock.containsKey(fileName)) {
+				lock = new ReentrantReadWriteLock();
+				fileReadWriteLock.put(fileName, lock);
+			} else {
+				lock = fileReadWriteLock.get(fileName);
+			}
 			try {
+				lock.writeLock().lock();
 				File f = new File(dir + "/" + fileName);
 				FileWriter fw = new FileWriter(f, true);
 				fw.write(content.getData());
@@ -105,6 +135,8 @@ public class ReplicaServerImpl implements ReplicaServerClientInterface {
 			} catch (IOException e) {
 				e.printStackTrace();
 				success = false;
+			} finally {
+				lock.writeLock().unlock();
 			}
 			fileLock.get(fileName).release();
 			return success;
