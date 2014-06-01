@@ -36,7 +36,7 @@ public class MasterServerImpl implements MasterServerClientInterface {
 	private static Random r = new Random(System.nanoTime());
 
 	private static synchronized int rand(int size) {
-		return r.nextInt();
+		return r.nextInt(size) % size;
 	}
 
 	public MasterServerImpl(File metaData,
@@ -78,6 +78,7 @@ public class MasterServerImpl implements MasterServerClientInterface {
 		boolean[] visited = new boolean[replicaServerAddresses.length];
 		for (int i = 0; i < result.length; i++) {
 			int randomReplicaServer = rand(replicaServerAddresses.length);
+			System.out.println(visited.length + " " + randomReplicaServer);
 			while (visited[randomReplicaServer])
 				randomReplicaServer = rand(replicaServerAddresses.length);
 			visited[randomReplicaServer] = true;
@@ -124,6 +125,7 @@ public class MasterServerImpl implements MasterServerClientInterface {
 				} else {
 					locations = selectRandomReplicas();
 				}
+				locMap.put(fileName, locations);
 				ReplicaLoc primary = locations[0];
 				ReplicaServerClientInterface primaryServer = null;
 				try {

@@ -102,7 +102,7 @@ public class ReplicaServerImpl implements ReplicaServerClientInterface {
 				e1.printStackTrace();
 			}
 			boolean success = true;
-
+			System.out.println(locations[0]);
 			// check if this is the master replica
 			if (locations[0].getName().equals(name)) {
 				for (int i = 1; i < locations.length; i++) {
@@ -119,6 +119,15 @@ public class ReplicaServerImpl implements ReplicaServerClientInterface {
 					}
 				}
 			}
+			try {
+				FileContent fc = new FileContent(fileName);
+				fc.setData(null);
+				masterServer.write(fc);
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+
 			ReadWriteLock lock = null;
 			if (!fileReadWriteLock.containsKey(fileName)) {
 				lock = new ReentrantReadWriteLock();
@@ -191,7 +200,8 @@ public class ReplicaServerImpl implements ReplicaServerClientInterface {
 			System.out.println("here!!");
 			registry.bind(name, replicaServerStub);
 
-			System.out.println("----" + masterServer.read("file1.txt").length);
+			// System.out.println("----" +
+			// masterServer.read("file1.txt").length);
 
 			System.out.println("here also!!");
 		} catch (Exception e) {

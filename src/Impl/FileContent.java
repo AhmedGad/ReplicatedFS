@@ -23,6 +23,12 @@ public class FileContent implements Serializable {
 	}
 
 	public String getData() {
+		if (data == null)
+			return null;
 		return data.toString();
+	}
+	
+	public void setData(StringBuilder sb) {
+		data = sb;
 	}
 }
